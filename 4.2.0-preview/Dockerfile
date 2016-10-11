@@ -1,10 +1,11 @@
 FROM debian:jessie
 MAINTAINER Michael J. Stealey <michael.j.stealey@gmail.com>
 
-# explicitly set user/group IDs
+# Explicitly set user/group IDs for irods account
 RUN groupadd -r irods --gid=998 \
     && useradd -r -g irods -d /var/lib/irods --uid=998 irods
 
+ENV HOME=/root
 WORKDIR /
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
@@ -28,7 +29,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     apt-transport-https
 
-# Install iRODS v.4.2.0-rc
+# Install iRODS v.4.2.0-preview
 RUN wget -qO - https://unstable.irods.org/irods-unstable-signing-key.asc | sudo apt-key add - \
     && echo "deb [arch=amd64] https://unstable.irods.org/apt/ trusty main" | \
     sudo tee /etc/apt/sources.list.d/renci-irods-unstable.list \
