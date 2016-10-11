@@ -51,7 +51,7 @@ ENV IRODS_CONTROL_PLANE_KEY=TEMPORARY__32byte_ctrl_plane_key
 ENV IRODS_DATABASE_PASSWORD=temppassword
 ENV IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
 
-COPY docker-entrypoint.sh /
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 VOLUME ["/var/lib/irods/iRODS/Vault" "/var/lib/postgresql/data"]
 
 EXPOSE $IRODS_PORT $IRODS_CONTROL_PLANE_PORT $IRODS_PORT_RANGE_BEGIN-$IRODS_PORT_RANGE_END
