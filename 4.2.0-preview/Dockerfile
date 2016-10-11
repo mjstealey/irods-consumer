@@ -5,8 +5,10 @@ MAINTAINER Michael J. Stealey <michael.j.stealey@gmail.com>
 RUN groupadd -r irods --gid=998 \
     && useradd -r -g irods -d /var/lib/irods --uid=998 irods
 
-WORKDIR /
-COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+# Shenanigans to make dockerhub happy
+COPY . /tmp
+RUN cp /tmp/docker-entrypoint.sh /docker-entrypoint.sh \
+    && rm -rf /tmp/*
 
 # Install gosu
 ENV GOSU_VERSION 1.9
@@ -54,7 +56,7 @@ ENV IRODS_CONTROL_PLANE_KEY=TEMPORARY__32byte_ctrl_plane_key
 ENV IRODS_DATABASE_PASSWORD=temppassword
 ENV IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
 
-VOLUME ["/var/lib/irods/iRODS/Vault" "/etc/irods"]
+VOLUME /var/lib/irods/iRODS/Vault /etc/irods
 
 EXPOSE $IRODS_PORT $IRODS_CONTROL_PLANE_PORT $IRODS_PORT_RANGE_BEGIN-$IRODS_PORT_RANGE_END
 ENTRYPOINT ["/docker-entrypoint.sh"]
