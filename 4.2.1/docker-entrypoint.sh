@@ -58,13 +58,13 @@ _usage() {
     echo " "
     echo "options:"
     echo "-h                    show brief help"
-    echo "-i run_irods          initialize iRODS 4.2.0 consumer"
-    echo "-x run_irods          use existing iRODS 4.2.0 consumer files"
+    echo "-i run_irods          initialize iRODS 4.2.1 consumer"
+    echo "-x run_irods          use existing iRODS 4.2.1 consumer files"
     echo "-v                    verbose output"
     echo ""
     echo "Example:"
-    echo "  $ docker run --rm mjstealey/irods-consumer:4.2.0 -h           # show help"
-    echo "  $ docker run -d mjstealey/irods-consumer:4.2.0 -i run_irods   # init with default settings"
+    echo "  $ docker run --rm mjstealey/irods-consumer:4.2.1 -h           # show help"
+    echo "  $ docker run -d mjstealey/irods-consumer:4.2.1 -i run_irods   # init with default settings"
     echo ""
     exit 0
 }
