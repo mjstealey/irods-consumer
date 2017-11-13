@@ -1,177 +1,469 @@
 # irods-consumer
-Docker implementation of iRODS consumer
+
+iRODS consumer in Docker
+
+- v4.2.2 - Debian:stretch based (16.04 Xenial iRODS packages)
+- v4.2.1 - Debian:jessie based (14.04 Trusty iRODS packages)
+- v4.2.0 - Debian:jessie based (14.04 Trusty iRODS packages)
+
+Jump to [Real world usage](#real_usage) example
+
+**Note**: The iRODS consumer requires a pre-existing iRODS catalog provider to connect to as the consumer does not contain a catalog database of it's own. Most examples provided herein additionally make use of the [irods-provider-postgres](https://github.com/mjstealey/irods-provider-postgres) docker work running in a docker network named `irods_nw`.
+
+```
+$ docker network create \
+	--driver bridge \
+	irods_nw
+$ docker run -d --name=provider \
+	--network=irods_nw \
+	--hostname=provider \
+	mjstealey/irods-provider-postgres:4.2.2 \
+	-i run_irods
+``` 
 
 ## Supported tags and respective Dockerfile links
 
-- 4.2.0, latest ([4.2.0/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.0/Dockerfile))
+- 4.2.2, latest ([4.2.2/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.2/Dockerfile))
+- 4.2.1 ([4.2.1/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.1/Dockerfile)) - In progress
+- 4.2.0 ([4.2.0/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.0/Dockerfile)) - In progress
 
 ### Pull image from dockerhub
 
-```
-docker pull mjstealey/irods-consumer:latest
-```
-
-### Usage:
-
-**Example 1.** The iRODS consumer assumes that there is an already running instance of an iRODS provider server reachable over the network.
-
-In this example we've previously launched a daemonized instance of [irods-provider-postgres:latest](https://github.com/mjstealey/irods-provider-postgres) and have specified that both it's docker name and hostname are **provider**:
-
-```
-$ docker run -d --name provider \
-  --hostname provider \
-  irods-provider-postgres:latest
+```bash
+$ docker pull mjstealey/irods-consumer:latest
 ```
 
-When launching our iRODS **consumer** we want to match the version of the iRODS **provider** server and pass along a few attributes to allow the container to bind with the already running **provider** instance. We'll use the **--link** attribute to specify which container it should have IP information for, the **--hostname** attribute to use a known name for the created container, as well as specify the environment variable **IRODS\_PROVIDER\_HOST_NAME** to match the hostname we gave to the **provider** container.
+### Build locally
 
-```
-$ docker run -d --name consumer \
-  --hostname consumer \
-  -e IRODS_PROVIDER_HOST_NAME=provider \
-  --link provider:provider \
-  mjstealey/irods-consumer:latest
-```
-This call has been daemonized with the **-d** flag, which would most likely be used in an actual environment.
-
-On completion a running container named **consumer** is spawned with the following configuration:
-
-```
--------------------------------------------
-Zone name:                  tempZone
-iRODS catalog host:         provider
-iRODS server port:          1247
-iRODS port range (begin):   20000
-iRODS port range (end):     20199
-Control plane port:         1248
-Schema validation base URI: file:///var/lib/irods/configuration_schemas
-iRODS server administrator: rods
--------------------------------------------
+```bash
+$ cd irods-consumer/4.2.2
+$ docker build -t consumer-4.2.2 .
+$ docker run -d --name consumer consumer-4.2.2:latest
 ```
 
-If deploying in a strictly docker environment, the /etc/hosts of the provider would also require the information for the consumer. We were able to pass the **--link** option to the consumer when it was created as the provider already existed, but this needs to be manually added to the provider.
+## Usage:
 
-Get the IP Address from the consumer.
+An entry point script named `docker-entrypoint.sh` that is internal to the container will have the provided arguments passed to it.
+
+Supported arguments are:
+
+- `-h`: show brief help
+- `-i run_irods`: initialize iRODS consumer
+- `-x run_irods`: use existing iRODS consumer files
+- `-v`: verbose output
+
+The options can be referenced by passing in `-h` as in the following example:
 
 ```
-$ docker exec consumer /sbin/ip -f inet -4 -o addr | grep eth | cut -d '/' -f 1 | rev | cut -d ' ' -f 1 | rev
-172.17.0.3
-``` 
+$ docker run --rm mjstealey/irods-consumer:latest -h
+Usage: /docker-entrypoint.sh [-h] [-ix run_irods] [-v] [arguments]
 
-Add the consumer host information to the /etc/hosts file of the provider
+options:
+-h                    show brief help
+-i run_irods          initialize iRODS 4.2.2 consumer
+-x run_irods          use existing iRODS 4.2.2 consumer files
+-v                    verbose output
 
-```
-$ docker exec provider sh -c 'echo "172.17.0.3 consumer" >> /etc/hosts'
-$ docker exec provider cat /etc/hosts
-127.0.0.1	localhost
-::1	localhost ip6-localhost ip6-loopback
-fe00::0	ip6-localnet
-ff00::0	ip6-mcastprefix
-ff02::1	ip6-allnodes
-ff02::2	ip6-allrouters
-172.17.0.2	provider
-172.17.0.3 consumer
+Example:
+  $ docker run --rm mjstealey/irods-consumer:4.2.2 -h           # show help
+  $ docker run -d mjstealey/irods-consumer:4.2.2 -i run_irods   # init with default settings
 ```
 
-Use the **docker exec** call to at the terminal interact with the container. Add the user definition of **-u irods** to specify that commands should be run as the **irods** user.
+### Example: Simple container deploy
 
-- Sample **iadmin lr**:
+```bash
+$ docker run -d--name=consumer \
+	--network=irods_nw \
+	--hostname=consumer \
+	mjstealey/irods-consumer:4.2.2 \
+	-i run_irods
+```
+This call has been daemonized (additional **-d** flag) which would most likely be used in an actual environment
+
+On completion a running container named **consumer** is spawned:
+
+```
+$ docker ps
+CONTAINER ID        IMAGE                                     COMMAND                  CREATED             STATUS              PORTS                                      NAMES
+397b1ef6d9e7        mjstealey/irods-consumer:4.2.2            "/docker-entrypoin..."   17 seconds ago      Up 18 seconds       1247-1248/tcp, 20000-20199/tcp             consumer
+0cfa7cb35171        mjstealey/irods-provider-postgres:4.2.2   "/irods-docker-ent..."   3 minutes ago       Up 3 minutes        1247-1248/tcp, 5432/tcp, 20000-20199/tcp   provider
+```
+
+Default configuration is based on the default environment variables of the container which are defined as:
+
+```
+# default iRODS env
+IRODS_SERVICE_ACCOUNT_NAME=irods
+IRODS_SERVICE_ACCOUNT_GROUP=irods
+# 1. provider, 2. consumer
+IRODS_SERVER_ROLE=2
+IRODS_PROVIDER_ZONE_NAME=tempZone
+IRODS_PROVIDER_HOST_NAME=provider
+IRODS_PORT=1247
+IRODS_PORT_RANGE_BEGIN=20000
+IRODS_PORT_RANGE_END=20199
+IRODS_CONTROL_PLANE_PORT=1248
+IRODS_SCHEMA_VALIDATION=file:///var/lib/irods/configuration_schemas
+IRODS_SERVER_ADMINISTRATOR_USER_NAME=rods
+IRODS_SERVER_ZONE_KEY=TEMPORARY_zone_key
+IRODS_SERVER_NEGOTIATION_KEY=TEMPORARY_32byte_negotiation_key
+IRODS_CONTROL_PLANE_KEY=TEMPORARY__32byte_ctrl_plane_key
+IRODS_SERVER_ADMINISTRATOR_PASSWORD=rods
+IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
+# UID / GID settings
+UID_IRODS=998
+GID_IRODS=998
+```
+Interaction with the iRODS server can be done with the `docker exec` command. The container has a definition of the `irods` Linux service account that has been associated with the `rods` **rodsadmin** user in iRODS. Interaction would look as follows:
+
+- Sample **ilsresc**:
+
+	```
+	$ docker exec -u irods consumer ilsresc
+	consumerResource:unixfilesystem
+	demoResc:unixfilesystem
+	```
+
+- Sample **ils**:
 
   ```
-  $ docker exec -u irods provider iadmin lr
-  bundleResc
-  demoResc
-  consumerResource
-  $ docker exec -u irods consumer iadmin lr
-  bundleResc
-  demoResc
-  consumerResource
-  ```
-From this call you can see the newly launched **consumerResource** from both the **provider** server as well as the **consumer** server.
-
-- Sample **iadmin lr consumerResource**
-
-  ```
-  $ docker exec -u irods provider iadmin lr consumerResource
-  resc_id: 10016
-  resc_name: consumerResource
-  zone_name: tempZone
-  resc_type_name: unixfilesystem
-  resc_net: consumer
-  resc_def_path: /var/lib/irods/iRODS/Vault
-  free_space:
-  free_space_ts Never
-  resc_info:
-  r_comment:
-  resc_status:
-  create_ts 2017-02-16.20:18:03
-  modify_ts 2017-02-16.20:18:03
-  resc_children:
-  resc_context:
-  resc_parent:
-  resc_objcount: 0
-  resc_parent_context:
-  ```
-
-**Example 2.** iput a file from the provider container onto the consumerResource in the consumer container
-
-- Get on the provider container as the irods user, create a sample file and iput it to the consumerResource.
-
-  ```
-  $ docker exec -ti -u irods provider /bin/bash
-  $ cd ~
-  irods@provider:~$ pwd
-  /var/lib/irods
-  irods@provider:~$ ipwd
-  /tempZone/home/rods
-  irods@provider:~$ touch hello.txt
-  irods@provider:~$ iput -R consumerResource hello.txt
-  irods@provider:~$ ils -l
+  $ docker exec -u irods consumer ils
   /tempZone/home/rods:
-    rods              0 consumerResource            0 2017-02-16.20:48 & hello.txt
   ```
 
-- Get on the consumer container and verify that the sample file is in the consumer vault.
+- Sample **iadmin lz**:
 
   ```
-  $ docker exec -ti -u irods consumer /bin/bash
-  irods@consumer:/$ ils -l
-  /tempZone/home/rods:
-    rods              0 consumerResource            0 2017-02-16.20:48 & hello.txt
-  irods@consumer:/$ ls -alh /var/lib/irods/iRODS/Vault/home/rods/
-  total 8.0K
-  drwxr-x--- 2 irods irods 4.0K Feb 16 20:48 .
-  drwxr-x--- 3 irods irods 4.0K Feb 16 20:18 ..
-  -rw------- 1 irods irods    0 Feb 16 20:48 hello.txt
+  $ docker exec -u irods consumer iadmin lz
+  tempZone
   ```
+- Sample **ienv**:
 
-**Example 3.** Use an environment file to pass the required environment variables for the iRODS `setup_irods.sh` call.
+	```
+	$ docker exec -u irods consumer ienv
+	irods_version - 4.2.2
+	irods_host - consumer
+	irods_user_name - rods
+	irods_transfer_buffer_size_for_parallel_transfer_in_megabytes - 4
+	irods_zone_name - tempZone
+	irods_server_control_plane_encryption_num_hash_rounds - 16
+	schema_version - v3
+	irods_encryption_salt_size - 8
+	irods_encryption_num_hash_rounds - 16
+	irods_default_resource - consumerResource
+	irods_home - /tempZone/home/rods
+	irods_session_environment_file - /var/lib/irods/.irods/irods_environment.json.0
+	irods_port - 1247
+	irods_encryption_algorithm - AES-256-CBC
+	schema_name - irods_environment
+	irods_server_control_plane_encryption_algorithm - AES-256-CBC
+	irods_environment_file - /var/lib/irods/.irods/irods_environment.json
+	irods_default_number_of_transfer_threads - 4
+	irods_cwd - /tempZone/home/rods
+	irods_default_hash_scheme - SHA256
+	irods_match_hash_policy - compatible
+	irods_client_server_policy - CS_NEG_REFUSE
+	irods_encryption_key_size - 32
+	irods_server_control_plane_port - 1248
+	irods_server_control_plane_key - TEMPORARY__32byte_ctrl_plane_key
+	irods_client_server_negotiation - request_server_negotiation
+	irods_maximum_size_for_single_buffer_in_megabytes - 32
+	```
+
+### Example: Persisting data
+
+By sharing volumes from the host to the container, the user can persist data between container instances even if the original container definition is removed from the system.
+
+Volumes to mount:
+
+- **iRODS home**: map to `/var/lib/irods/` on the container
+- **iRODS configuration**: map to `/etc/irods/` on the container
+
+It is also necessary to define a **hostname** for the container when persisting data as the hostname information is written to the data store on initialization.
+
+1. Create volumes on the host:
+
+	```
+	$ mkdir var_irods  # map to /var/lib/irods/
+	$ mkdir etc_irods  # map to /etc/irods/
+	```
+
+2. Run the docker container with the `-i` flag for **init**:
+
+	```
+	$ docker run -d --name=consumer \
+		--network=irods_nw \
+		--hostname=consumer \
+		-v $(pwd)/var_irods:/var/lib/irods \
+		-v $(pwd)/etc_irods:/etc/irods \
+		mjstealey/irods-consumer:latest \
+		-i run_irods
+	```
+	Note, the host volumes now contain the relevant data to the iRODS deployment
+	
+	```
+	$ ls var_irods
+	VERSION.json          clients               configuration_schemas irodsctl              msiExecCmd_bin        scripts
+	VERSION.json.dist     config                iRODS                 log                   packaging             test
+	
+	
+	$ ls etc_irods
+	core.dvm                        core.re                         hosts_config.json               service_account.config
+	core.fnm                        host_access_control_config.json server_config.json
+	```
+	
+	Go ahead and `iput` some data and verify it in the catalog.
+	
+	```
+	$ docker exec -u irods consumer iput VERSION.json
+	$ docker exec -u irods consumer ils -Lr
+	/tempZone/home/rods:
+	  rods              0 consumerResource          224 2017-11-12.04:34 & VERSION.json
+	        generic    /var/lib/irods/iRODS/Vault/home/rods/VERSION.json
+	```
+	
+	Note, the physical file can be found at: `$(pwd)/var_irods/iRODS/Vault/home/rods/VERSION.json` of the host
+
+3. Stop and remove the consumer container:
+
+	```
+	$ docker stop consumer
+	$ docker rm -fv consumer
+	```
+	This destroys any host level definitions or default docker volumes related to the consumer container and makes it impossible to recover the data from that container if we had not persisted it locally
+
+4. Run a new docker container with the `-x` flag for **use existing**:
+
+	```
+	$ docker run -d --name=consumer \
+		--network=irods_nw \
+		--hostname=consumer \
+		-v $(pwd)/var_irods:/var/lib/irods \
+		-v $(pwd)/etc_irods:/etc/irods \
+		mjstealey/irods-consumer:latest \
+		-x run_irods
+	```
+	The name of the docker container needs to stay the same in this example due to the way the docker networking was established, the shared host volume mounts and defined hostname that the container should use remained the same.
+	
+	Verify that the file put from the previous container has persisted on the new container instance.
+	
+	```
+	$ docker exec -u irods consumer ils -Lr
+	/tempZone/home/rods:
+	  rods              0 consumerResource          224 2017-11-12.04:34 & VERSION.json
+	        generic    /var/lib/irods/iRODS/Vault/home/rods/VERSION.json
+	```
+
+### Example: Using an environment file
+
+The default configuration variables can be overwritten by user defined values and passed to the container's environment by using an environment file.
+
+Example: `sample-consumer.env` 
 
 ```
-$ docker run -d --name resource \
-  --env-file sample-env-file.env \
-  --hostname resource \
-  --link provider:provider \
-  mjstealey/irods-consumer:latest
+IRODS_SERVICE_ACCOUNT_NAME=irods
+IRODS_SERVICE_ACCOUNT_GROUP=irods
+IRODS_SERVER_ROLE=2
+IRODS_PROVIDER_ZONE_NAME=tempZone
+IRODS_PROVIDER_HOST_NAME=provider
+IRODS_PORT=1247
+IRODS_PORT_RANGE_BEGIN=20000
+IRODS_PORT_RANGE_END=20199
+IRODS_CONTROL_PLANE_PORT=1248
+IRODS_SCHEMA_VALIDATION=file:///var/lib/irods/configuration_schemas
+IRODS_SERVER_ADMINISTRATOR_USER_NAME=rods
+IRODS_SERVER_ZONE_KEY=TEMPORARY_zone_key
+IRODS_SERVER_NEGOTIATION_KEY=TEMPORARY_32byte_negotiation_key
+IRODS_CONTROL_PLANE_KEY=TEMPORARY__32byte_ctrl_plane_key
+IRODS_SERVER_ADMINISTRATOR_PASSWORD=rods
+IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
+UID_IRODS=998
+GID_IRODS=998
 ```
-- Using sample environment file named `sample-env-file.env` (Update as required for your iRODS installation)
+This can be particularly useful if you want shared volume mounts to be written to the host using a particular `UID` or `GID` value to better integrate with the system.
 
-  ```bash
-  IRODS_SERVICE_ACCOUNT_NAME=irods
-  IRODS_SERVICE_ACCOUNT_GROUP=irods
-  IRODS_PROVIDER_ZONE_NAME=tempZone
-  IRODS_PROVIDER_HOST_NAME=provider
-  IRODS_PORT=1247
-  IRODS_PORT_RANGE_BEGIN=20000
-  IRODS_PORT_RANGE_END=20199
-  IRODS_CONTROL_PLANE_PORT=1248
-  IRODS_SCHEMA_VALIDATION=file:///var/lib/irods/configuration_schemas
-  IRODS_SERVER_ADMINISTRATOR_USER_NAME=rods
-  IRODS_SERVER_ZONE_KEY=TEMPORARY_zone_key
-  IRODS_SERVER_NEGOTIATION_KEY=TEMPORARY_32byte_negotiation_key
-  IRODS_CONTROL_PLANE_KEY=TEMPORARY__32byte_ctrl_plane_key
-  IRODS_SERVER_ADMINISTRATOR_PASSWORD=rods
-  IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
-  ```
+The inclusion of an environment file is made by adding `--env-file=FILENAME` to the `docker run` call.
 
-The outcome of this call would be identical to that described in Example 1, with the same results for the `docker exec -u irods provider iadmin ...` calls.
+Example:
+
+```
+$ docker run -d --name=consumer \
+	--env-file=$(pwd)/sample-consumer.env
+	--network=irods_nw \
+	--hostname=consumer \
+	-v $(pwd)/var_irods:/var/lib/irods \
+	-v $(pwd)/etc_irods:/etc/irods \
+	mjstealey/irods-consumer:latest \
+	-x run_irods
+```
+
+### <a name="real_usage"></a> Example: Real world usage
+
+**Note**: This example is predicated on the existence of an iRODS catalog provider as outlined in the [irods-provider-postgres usage example](https://github.com/mjstealey/irods-provider-postgres#real_usage).
+
+The docker based implementation of iRODS can be used as a standard iRODS catalog consumer when being installed on a VM or other platform capable of running docker and has a DNS resolvable name.
+
+In this example we will be using a VM on a private VLAN (not publicly accessible) with:
+
+- Hostname: `galera-1.edc.renci.org`
+- User: `stealey`
+- UID/GID: `20022`/`10000`
+	- iRODS files to be owned by `20022`/`10000`
+- Map 
+	- host: `/var/consumer/lib_irods` to docker - `/var/lib/irods`
+	- host: `/var/consumer/etc_irods` to docker - `/etc/irods`
+
+**Configuration**
+
+Create an environment file that captures the essence of what you want to deploy. In this example this has been named `irods-consumer.env`. The file only needs to contain the values that are being changed from the default, but all are shown here for completeness.
+
+Passwords generated using [pwgen](https://sourceforge.net/projects/pwgen/): `$ pwgen -cnB 32 1`
+
+- `IRODS_SERVER_NEGOTIATION_KEY`: Generate new
+- `IRODS_CONTROL_PLANE_KEY`: Generate new
+- `IRODS_SERVER_ZONE_KEY`: Copied from [mjs-dev-1.edc.renci.org]() provider config
+- `IRODS_SERVER_ADMINISTRATOR_PASSWORD`: Copied from [mjs-dev-1.edc.renci.org]() provider config
+
+Example: `irods-consumer.env` 
+
+```
+IRODS_SERVICE_ACCOUNT_NAME=irods
+IRODS_SERVICE_ACCOUNT_GROUP=irods
+IRODS_SERVER_ROLE=2
+IRODS_PROVIDER_ZONE_NAME=mjsDevZone
+IRODS_PROVIDER_HOST_NAME=mjs-dev-1.edc.renci.org
+IRODS_PORT=1247
+IRODS_PORT_RANGE_BEGIN=20000
+IRODS_PORT_RANGE_END=20199
+IRODS_CONTROL_PLANE_PORT=1248
+IRODS_SCHEMA_VALIDATION=file:///var/lib/irods/configuration_schemas
+IRODS_SERVER_ADMINISTRATOR_USER_NAME=rods
+IRODS_SERVER_ZONE_KEY=unieg4aing3Ed4Too7choT4ie4Eiceiz
+IRODS_SERVER_NEGOTIATION_KEY=wootoh9aiv3ooxai9kivuk4zo4faimee
+IRODS_CONTROL_PLANE_KEY=quohphaiwahre4eeghog9iomeegh9bie
+IRODS_SERVER_ADMINISTRATOR_PASSWORD=eeThefeig3ahNo9othaequooMo4bohsa
+IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
+UID_IRODS=998
+GID_IRODS=998
+```
+Create the directories on the host to share with the consumer container and set the permissions to correspond with the UID/GID that will be passed to the container.
+
+```
+$ sudo mkdir -p /var/consumer/lib_irods \
+	/var/consumer/etc_irods
+$ sudo chown -R 20022:10000 /var/consumer/lib_irods \
+	/var/consumer/etc_irods
+$ sudo ls -alh /var/consumer/ ### <-- validate settings
+```
+
+**Deployment**
+
+Because we want this to interact as a normal iRODS consumer, we will need to open the necessary ports for it to do so. specifically ports `1247`, `1248` and `20000-20199`.
+
+Run this docker command from the same directory as the `irods-consumer.env` file.
+
+```
+$ docker run -d --name=consumer \
+	--hostname=galera-1.edc.renci.org \
+	--env-file=irods-consumer.env \
+	-v /var/consumer/lib_irods:/var/lib/irods \
+	-v /var/consumer/etc_irods:/etc/irods \
+	-p 1247:1247 \
+	-p 1248:1248 \
+	-p 20000-20199:20000-20199 \
+	mjstealey/irods-consumer:latest \
+	-i run_irods
+```
+
+Since the container is being run with the `-d` flag, progress can be monitored by using docker attach to attach a terminal to the `STDOUT` of the container.
+
+```
+$ docker attach --sig-proxy=false consumer
+```
+
+Use `ctl-c` to exit when finished.
+
+Output of docker ps should look something like:
+
+```
+$ docker ps
+CONTAINER ID        IMAGE                            COMMAND                  CREATED              STATUS              PORTS                                                                    NAMES
+67b32e61251a        mjstealey/irods-consumer:latest  "/docker-entrypoin..."   About a minute ago   Up 57 seconds       0.0.0.0:1247-1248->1247-1248/tcp, 0.0.0.0:20000-20199->20000-20199/tcp   consumer
+```
+
+The container should also identify it's hostname as the same that you are running it on.
+
+```
+$ docker exec consumer hostname
+galera-1.edc.renci.org
+```
+
+**Sample iCommands**
+
+A true test of the system will be to log in from another machine, iinit as the `rods` user from the `mjs-dev-1.edc.renci.org` deployment, and see if iCommands work as they should.
+
+In this example we will be using `galera-1.edc.renci.org` as the other machine that has our iRODS deployment within it's network scope (on the same VLAN).
+
+From `galera-2.edc.renci.org`:
+
+```
+$ iinit
+One or more fields in your iRODS environment file (irods_environment.json) are
+missing; please enter them.
+Enter the host name (DNS) of the server to connect to: mjs-dev-1.edc.renci.org
+Enter the port number: 1247
+Enter your irods user name: rods
+Enter your irods zone: mjsDevZone
+Those values will be added to your environment file (for use by
+other iCommands) if the login succeeds.
+
+Enter your current iRODS password: eeThefeig3ahNo9othaequooMo4bohsa
+
+$ ilsresc
+demoResc:unixfilesystem
+galera-1Resource:unixfilesystem
+
+$ ils
+/mjsDevZone/home/rods:
+
+$ iadmin lr
+bundleResc
+demoResc
+
+$ iadmin lu
+rods#mjsDevZone
+
+$ iadmin lz
+mjsDevZone
+```
+
+Try `iput` from `galera-2.edc.renci.org` using a 10MB test file:
+
+```
+$ dd if=/dev/zero of=test-file.dat  bs=1M  count=10
+10+0 records in
+10+0 records out
+10485760 bytes (10 MB) copied, 0.00714244 s, 1.5 GB/s
+$ ls -alh test-file.dat
+-rw-r--r-- 1 xxxxx xxxxx 10M Nov 12 14:12 test-file.dat
+
+$ iput -R galera-1Resource test-file.dat
+$ ils -Lr
+/mjsDevZone/home/rods:
+  rods              0 galera-1Resource     10485760 2017-11-12.14:13 & test-file.dat
+        generic    /var/lib/irods/iRODS/Vault/home/rods/test-file.dat
+```
+
+Verify file on disk at `galera-1.edc.renci.org` in the vault:
+
+```
+$ sudo ls -alh /var/consumer/lib_irods/iRODS/Vault/home/rods
+total 10M
+drwxr-x--- 2 xxxxx xxxxx  26 Nov 12 14:13 .
+drwxr-x--- 3 xxxxx xxxxx  17 Nov 12 11:21 ..
+-rw------- 1 xxxxx xxxxx 10M Nov 12 14:13 test-file.dat
+```
+
+All other interactions that one would normally have with an iRODS consumer should hold true for the Docker implementation.
+
+Since the critical files are persisted to the host, adjustment to files such as `/etc/irods/server_config.json` could instead be done at `/var/consumer/etc_irods/server_config.json` so long as the appropriate file access permissions are adhered to.
