@@ -29,39 +29,34 @@ RUN set -x \
     && gosu nobody true \
     && apt-get purge -y --auto-remove ca-certificates wget
 
-# install iRODS v4.2.1
+# Prerequisites for iRODS v.4.1.9
 RUN apt-get update && apt-get install -y \
-    wget \
-    libxml2 \
-    apt-transport-https \
+    apt-utils \
     sudo \
-    jq \
-    && wget -qO - https://packages.irods.org/irods-signing-key.asc | apt-key add - \
-    && echo "deb [arch=amd64] https://packages.irods.org/apt/ trusty main" \
-    > /etc/apt/sources.list.d/renci-irods.list \
-    && apt-get update && apt-get install -y \
-    irods-externals-avro1.7.7-0 \
-    irods-externals-boost1.60.0-0 \
-    irods-externals-clang-runtime3.8-0 \
-    irods-externals-jansson2.7-0 \
-    irods-externals-libarchive3.1.2-0 \
-    irods-externals-zeromq4-14.1.3-0 \
-    irods-icommands=4.2.1 \
-    irods-runtime=4.2.1 \
-    irods-server=4.2.1
+    curl \
+    libfuse2 \
+    libjson-perl \
+    python-psutil \
+    python-requests \
+    lsof \
+    python-jsonschema
+
+# Install iRODS v.4.1.9
+RUN curl ftp://ftp.renci.org/pub/irods/releases/4.1.9/ubuntu14/irods-resource-4.1.9-ubuntu14-x86_64.deb -o irods-resource.deb \
+    && sudo dpkg -i irods-resource.deb \
+    && sudo apt-get -f install \
+    && rm irods-resource.deb
 
 # default iRODS env
 ENV IRODS_SERVICE_ACCOUNT_NAME=irods
 ENV IRODS_SERVICE_ACCOUNT_GROUP=irods
-# 1. provider, 2. consumer
-ENV IRODS_SERVER_ROLE=2
 ENV IRODS_PROVIDER_ZONE_NAME=tempZone
 ENV IRODS_PROVIDER_HOST_NAME=provider
 ENV IRODS_PORT=1247
 ENV IRODS_PORT_RANGE_BEGIN=20000
 ENV IRODS_PORT_RANGE_END=20199
 ENV IRODS_CONTROL_PLANE_PORT=1248
-ENV IRODS_SCHEMA_VALIDATION=file:///var/lib/irods/configuration_schemas
+ENV IRODS_SCHEMA_VALIDATION=https://schemas.irods.org/configuration
 ENV IRODS_SERVER_ADMINISTRATOR_USER_NAME=rods
 ENV IRODS_SERVER_ZONE_KEY=TEMPORARY_zone_key
 ENV IRODS_SERVER_NEGOTIATION_KEY=TEMPORARY_32byte_negotiation_key
@@ -75,6 +70,11 @@ ENV GID_IRODS=998
 # create irods.tar.gz
 RUN cd /var/lib/irods \
     && tar -czvf /irods.tar.gz . \
+    && cd /
+
+# create etc_irods.tar.gz
+RUN cd /etc/irods \
+    && tar -czvf /etc_irods.tar.gz . \
     && cd /
 
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh

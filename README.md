@@ -2,9 +2,13 @@
 
 iRODS consumer in Docker
 
-- v4.2.2 - Debian:stretch based (16.04 Xenial iRODS packages)
-- v4.2.1 - Debian:jessie based (14.04 Trusty iRODS packages)
-- v4.2.0 - Debian:jessie based (14.04 Trusty iRODS packages)
+- 4.2.2 - Debian:stretch based (16.04 Xenial iRODS packages)
+- 4.2.1 - Debian:jessie based (14.04 Trusty iRODS packages)
+- 4.2.0 - Debian:jessie based (14.04 Trusty iRODS packages)
+- 4.1.11 - Debian:jessie based (14.04 Trusty iRODS ftp deb files)
+- 4.1.10 - Debian:jessie based (14.04 Trusty iRODS ftp deb files)
+- 4.1.9 - Debian:jessie based (14.04 Trusty iRODS ftp deb files)
+- 4.1.8 - Debian:jessie based (14.04 Trusty iRODS ftp deb files)
 
 Jump to [Real world usage](#real_usage) example
 
@@ -24,8 +28,12 @@ $ docker run -d --name=provider \
 ## Supported tags and respective Dockerfile links
 
 - 4.2.2, latest ([4.2.2/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.2/Dockerfile))
-- 4.2.1 ([4.2.1/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.1/Dockerfile)) - In progress
-- 4.2.0 ([4.2.0/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.0/Dockerfile)) - In progress
+- 4.2.1 ([4.2.1/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.1/Dockerfile))
+- 4.2.0 ([4.2.0/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.2.0/Dockerfile))
+- 4.1.11 ([4.1.11/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.1.11/Dockerfile))
+- 4.1.10 ([4.1.10/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.1.10/Dockerfile))
+- 4.1.9 ([4.1.9/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.1.9/Dockerfile))
+- 4.1.8 ([4.1.8/Dockerfile](https://github.com/mjstealey/irods-consumer/blob/master/4.1.8/Dockerfile))
 
 ### Pull image from dockerhub
 
@@ -114,6 +122,9 @@ IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
 UID_IRODS=998
 GID_IRODS=998
 ```
+
+- **Note**: For iRODS 4.1.x there is no need to specify `IRODS_SERVER_ROLE`. If specified the values will be ignored as they are not used by the 4.1.x setup scripts.
+
 Interaction with the iRODS server can be done with the `docker exec` command. The container has a definition of the `irods` Linux service account that has been associated with the `rods` **rodsadmin** user in iRODS. Interaction would look as follows:
 
 - Sample **ilsresc**:
@@ -178,6 +189,10 @@ Volumes to mount:
 
 - **iRODS home**: map to `/var/lib/irods/` on the container
 - **iRODS configuration**: map to `/etc/irods/` on the container
+
+SE Linux users should note that volume mounts may fail, and may require a `:z` or `:Z` at the end of their volume defintion.
+
+- `-v $(pwd)/var_irods:/var/lib/irods:z`
 
 It is also necessary to define a **hostname** for the container when persisting data as the hostname information is written to the data store on initialization.
 
@@ -280,6 +295,9 @@ IRODS_VAULT_DIRECTORY=/var/lib/irods/iRODS/Vault
 UID_IRODS=998
 GID_IRODS=998
 ```
+
+- **Note**: For iRODS 4.1.x there is no need to specify `IRODS_SERVER_ROLE`. If specified the values will be ignored as they are not used by the 4.1.x setup scripts.
+
 This can be particularly useful if you want shared volume mounts to be written to the host using a particular `UID` or `GID` value to better integrate with the system.
 
 The inclusion of an environment file is made by adding `--env-file=FILENAME` to the `docker run` call.

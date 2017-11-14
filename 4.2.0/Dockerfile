@@ -29,7 +29,7 @@ RUN set -x \
     && gosu nobody true \
     && apt-get purge -y --auto-remove ca-certificates wget
 
-# install iRODS v4.2.2
+# install iRODS v4.2.0
 RUN apt-get update && apt-get install -y \
     wget \
     libxml2 \
